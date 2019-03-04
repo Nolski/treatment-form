@@ -1,0 +1,113 @@
+<html>
+  <head>
+    <title>Treatment Form</title>
+    <!--Import Google Icon Font-->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <!-- Compiled and minified CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <!--Let browser know website is optimized for mobile-->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <style>
+     body {
+       background-color: #405E80;
+       color: #FFF;
+     }
+
+     label {
+       color: #FFF;
+     }
+
+     .logo {
+       margin: 30px auto;
+       width: 158px;
+       height: 180px;
+       display: block;
+     }
+
+     .title {
+       border-bottom: 1px solid #b3b3b3;
+     }
+
+     [type="radio"]:not(:checked) + span::before, [type="radio"]:not(:checked) + span::after {
+       border: 2px solid #b3b3b3;
+     }
+
+     .submit {
+       margin: 10px 0;
+       font-weight: bold;
+     }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="title">
+        <img class="logo" src="img/logo_big.png" />
+        <h2 style="text-align: center;">Treatment Selection Tool</h2>
+      </div>
+      <form onsubmit="submit()" id="form">
+        <div class="row">
+          <h4>Nationality</h4>
+          <label class="col s6">
+            <input type="radio" id="syrian" value="syrian" name="nationality" />
+            <span>Syrian</span>
+          </label>
+          <label class="col s6">
+            <input type="radio" id="jordanian" value="jordanian" name="nationality" />
+            <span>Jordanian</span>
+          </label>
+        </div>
+        <div class="row">
+          <h4>Gender</h4>
+          <label class="col s6">
+            <input type="radio" id="male" value="male" name="gender" />
+            <span>Male</span>
+          </label>
+          <label class="col s6">
+            <input type="radio" id="female" value="female" name="gender" />
+            <span>Female</span>
+          </label>
+        </div>
+        <div class="row">
+          <h4>Experience</h4>
+          <label class="col s6">
+            <input type="radio" id="ex-above" value="ex-above" name="ex" />
+            <span>Any Work Experience</span>
+          </label>
+          <label class="col s6">
+            <input type="radio" id="ex-below" value="ex-below" name="ex" />
+            <span>No Work Experience</span>
+          </label>
+        </div>
+        <div class="row">
+          <h4>Education</h4>
+          <label class="col s6">
+            <input type="radio" id="ed-above" value="ed-above" name="ed" />
+            <span>Above Secondary Education</span>
+          </label>
+          <label class="col s6">
+            <input type="radio" id="ed-below" value="ed-below" name="ed" />
+            <span>Below Secondary Education</span>
+          </label>
+        </div>
+        <div class="row">
+          <button type="submit" class="waves-effect waves-light btn col s12 submit">SUBMIT</Button>
+        </div>
+      </form>
+    </div>
+    <!-- jQuery -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <!-- Compiled and minified JavaScript -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <script>
+     window.onload = function() {
+       var form = document.querySelector("form");
+       form.onsubmit = submitted.bind(form);
+     }
+
+     function submitted(event) {
+       event.preventDefault()
+       console.log($('#form').serialize())
+     }
+    </script>
+  </body>
+</html>
