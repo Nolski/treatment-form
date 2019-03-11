@@ -28,13 +28,18 @@
        border-bottom: 1px solid #b3b3b3;
      }
 
-     [type="radio"]:not(:checked) + span::before, [type="radio"]:not(:checked) + span::after {
+     [type="radio" required]:not(:checked) + span::before, [type="radio"]:not(:checked) + span::after {
        border: 2px solid #b3b3b3;
      }
 
      .submit {
        margin: 10px 0;
        font-weight: bold;
+     }
+
+     #cash, #information, #psych {
+       display: none;
+       text-align: center;
      }
     </style>
   </head>
@@ -44,49 +49,58 @@
         <img class="logo" src="img/logo_big.png" />
         <h2 style="text-align: center;">Treatment Selection Tool</h2>
       </div>
+      <div id="psych">
+        <h2>You have been assigned psychological</h2>
+      </div>
+      <div id="information">
+        <h2>You have been assigned information</h2>
+      </div>
+      <div id="cash">
+        <h2>You have been assigned cash</h2>
+      </div>
       <form onsubmit="submit()" id="form">
         <div class="row">
           <h4>Nationality</h4>
           <label class="col s6">
-            <input type="radio" id="syrian" value="syrian" name="nationality" />
+            <input type="radio" required id="syrian" value="syrian" name="nationality" />
             <span>Syrian</span>
           </label>
           <label class="col s6">
-            <input type="radio" id="jordanian" value="jordanian" name="nationality" />
+            <input type="radio" required id="jordanian" value="jordanian" name="nationality" />
             <span>Jordanian</span>
           </label>
         </div>
         <div class="row">
           <h4>Gender</h4>
           <label class="col s6">
-            <input type="radio" id="male" value="male" name="gender" />
+            <input type="radio" required id="male" value="male" name="gender" />
             <span>Male</span>
           </label>
           <label class="col s6">
-            <input type="radio" id="female" value="female" name="gender" />
+            <input type="radio" required id="female" value="female" name="gender" />
             <span>Female</span>
-          </label>
-        </div>
-        <div class="row">
-          <h4>Experience</h4>
-          <label class="col s6">
-            <input type="radio" id="ex-above" value="ex-above" name="ex" />
-            <span>Any Work Experience</span>
-          </label>
-          <label class="col s6">
-            <input type="radio" id="ex-below" value="ex-below" name="ex" />
-            <span>No Work Experience</span>
           </label>
         </div>
         <div class="row">
           <h4>Education</h4>
           <label class="col s6">
-            <input type="radio" id="ed-above" value="ed-above" name="ed" />
+            <input type="radio" required id="ed-above" value="1" name="ed" />
             <span>Above Secondary Education</span>
           </label>
           <label class="col s6">
-            <input type="radio" id="ed-below" value="ed-below" name="ed" />
+            <input type="radio" required id="ed-below" value="0" name="ed" />
             <span>Below Secondary Education</span>
+          </label>
+        </div>
+        <div class="row">
+          <h4>Experience</h4>
+          <label class="col s6">
+            <input type="radio" required id="ex-above" value="1" name="ex" />
+            <span>Any Work Experience</span>
+          </label>
+          <label class="col s6">
+            <input type="radio" required id="ex-below" value="0" name="ex" />
+            <span>No Work Experience</span>
           </label>
         </div>
         <div class="row">
@@ -98,16 +112,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
     <!-- Compiled and minified JavaScript -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
-    <script>
-     window.onload = function() {
-       var form = document.querySelector("form");
-       form.onsubmit = submitted.bind(form);
-     }
-
-     function submitted(event) {
-       event.preventDefault()
-       console.log($('#form').serialize())
-     }
-    </script>
+    <script src="/out.js"></script>
   </body>
 </html>
