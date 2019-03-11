@@ -13,7 +13,7 @@
       "sizes": "512x512"
     }
   ],
-  "start_url": "/treatment-form/",
+  "start_url": "https://nolski.github.io/treatment-form/",
   "background_color": "#405E80",
   "display": "standalone",
   "theme_color": "#405E80"
