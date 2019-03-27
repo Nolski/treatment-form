@@ -43,7 +43,7 @@ function getStrata() {
 function submitted(event) {
     event.preventDefault();
     const strata = getStrata();
-    DataFrame.fromCSV('https://ucb6156dff1d52b3235079cb6d26.dl.dropboxusercontent.com/cd/0/get/Ac5z5MFOYTYNBUtZbymyCBn2SfPXk8-zUE44HHKIbJxug7G7SP6rBYJWZNfk2B-mw-hgIRGRalp7bABAL7eDlFxu6tvYg5s0S5To9wsAoD0_ew/file?dl=1')
+    DataFrame.fromCSV('https://theirc-tashbeek-staging.azurewebsites.net/thompson-probs/')
         .then(df => {
             const probs = df.toArray()[strata].map(parseFloat);
             const rand = Math.random();
@@ -52,8 +52,10 @@ function submitted(event) {
                 $('#cash').show();
             } else if (rand < probs[0] && rand < probs[1]) {
                 $('#information').show();
-            } else {
+            } else if (rand < probs[3] && rand < probs[2]){
                 $('#psych').show();
+            } else {
+                $('#control').show();
             }
         });
 };

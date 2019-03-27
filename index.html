@@ -6,12 +6,21 @@
     <!-- Compiled and minified CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
     <link rel="manifest"  href="./manifest.json" />
+
+    <link href="https://fonts.googleapis.com/css?family=Reem+Kufi&amp;subset=arabic" rel="stylesheet">
+
+    <meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
     <!--Let browser know website is optimized for mobile-->
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <style>
+     html {
+       direction: rtl;
+     }
+
      body {
        background-color: #405E80;
        color: #FFF;
+       font-family: 'Reem Kufi', sans-serif;
      }
 
      label {
@@ -38,7 +47,7 @@
        font-weight: bold;
      }
 
-     #cash, #information, #psych {
+     #cash, #information, #psych, #control {
        display: none;
        text-align: center;
      }
@@ -48,60 +57,63 @@
     <div class="container">
       <div class="title">
         <img class="logo" src="img/logo_big.png" />
-        <h2 style="text-align: center;">Treatment Selection Tool</h2>
+        <h2 style="text-align: center;">اداة اختيار التدخل</h2>
       </div>
       <div id="psych">
-        <h2>You have been assigned psychological</h2>
+        <h2>لقد خصص لك التدخل النفسي</h2>
       </div>
       <div id="information">
-        <h2>You have been assigned information</h2>
+        <h2>لقد خصص لك تدخل المعلومات </h2>
       </div>
       <div id="cash">
-        <h2>You have been assigned cash</h2>
+        <h2>لقد خصص لك تدخل النقود </h2>
+      </div>
+      <div id="control">
+        <h2>لقد خصص لك تدخل التحكم </h2>
       </div>
       <form onsubmit="submit()" id="form">
         <div class="row">
-          <h4>Nationality</h4>
+          <h4>الجنسية</h4>
           <label class="col s6">
             <input type="radio" required id="syrian" value="syrian" name="nationality" />
-            <span>Syrian</span>
+            <span>سوري</span>
           </label>
           <label class="col s6">
             <input type="radio" required id="jordanian" value="jordanian" name="nationality" />
-            <span>Jordanian</span>
+            <span>أردني</span>
           </label>
         </div>
         <div class="row">
-          <h4>Gender</h4>
+          <h4>الجنس</h4>
           <label class="col s6">
             <input type="radio" required id="male" value="male" name="gender" />
-            <span>Male</span>
+            <span>ذكر</span>
           </label>
           <label class="col s6">
             <input type="radio" required id="female" value="female" name="gender" />
-            <span>Female</span>
+            <span>أنثى</span>
           </label>
         </div>
         <div class="row">
-          <h4>Education</h4>
+          <h4>التعليم</h4>
           <label class="col s6">
             <input type="radio" required id="ed-above" value="1" name="ed" />
-            <span>Above Secondary Education</span>
+            <span>فوق التعليم الثانوي</span>
           </label>
           <label class="col s6">
             <input type="radio" required id="ed-below" value="0" name="ed" />
-            <span>Below Secondary Education</span>
+            <span>تحت التعليم الثانوي</span>
           </label>
         </div>
         <div class="row">
-          <h4>Experience</h4>
+          <h4>الخبرة</h4>
           <label class="col s6">
             <input type="radio" required id="ex-above" value="1" name="ex" />
-            <span>Any Work Experience</span>
+            <span>أي خبرة عمل</span>
           </label>
           <label class="col s6">
             <input type="radio" required id="ex-below" value="0" name="ex" />
-            <span>No Work Experience</span>
+            <span>لا خبرة عمل </span>
           </label>
         </div>
         <div class="row">
