@@ -48,12 +48,15 @@ function submitted(event) {
         .then(df => {
             const probs = df.toArray()[strata].map(parseFloat);
             const rand = Math.random();
+            const prob1 = probs[0] + probs[1];
+            const prob2 = prob1 + probs[2];
             $('#form').hide();
+
             if (rand < probs[0]) {
                 $('#cash').show();
-            } else if (rand < probs[0] && rand < probs[1]) {
+            } else if (rand > probs[0] && rand <= prob1) {
                 $('#information').show();
-            } else if (rand < probs[3] && rand < probs[2]){
+            } else if (rand > prob1 && rand <= prob2){
                 $('#psych').show();
             } else {
                 $('#control').show();
