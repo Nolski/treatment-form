@@ -60,5 +60,7 @@ function submitted(event) {
             } else {
                 $('#control').show();
             }
+            let info = `rand: ${rand}, probs: ${probs}`;
+            ga('send', 'event', 'Randomize', 'Form Submit', info);
         });
 };
