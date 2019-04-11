@@ -61,6 +61,9 @@ function submitted(event) {
                 $('#control').show();
             }
             let info = `rand: ${rand}, probs: ${probs}`;
-            ga('send', 'event', 'Randomize', 'Form Submit', info);
+            gtag('event', 'submit', {
+                'event_category': 'Randomize',
+                'event_label': info,
+            });
         });
 };
