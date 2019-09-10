@@ -75,15 +75,20 @@ function submitted(event) {
                 const prob1 = probs[0] + probs[1];
                 const prob2 = prob1 + probs[2];
                 $('#form').hide();
+                let chosen = undefined;
 
                 if (rand < probs[0]) {
                     $('#cash').show();
+                    chosen = 'cash';
                 } else if (rand > probs[0] && rand <= prob1) {
                     $('#information').show();
+                    chosen = 'information';
                 } else if (rand > prob1 && rand <= prob2){
                     $('#psych').show();
+                    chosen = 'psych';
                 } else {
                     $('#control').show();
+                    chosen = 'control';
                 }
                 let info = `rand: ${rand}, probs: ${probs}`;
                 gtag('event', 'submit', {
@@ -97,7 +102,7 @@ function submitted(event) {
                     let now = current_datetime.getFullYear() + "-" + (current_datetime.getMonth() + 1) + "-" + current_datetime.getDate() + " " + current_datetime.getHours() + ":" + current_datetime.getMinutes() + ":" + current_datetime.getSeconds();
                     let ip = JSON.stringify(data.ip, null, 2);
                     // String to append to dropbox logs
-                    let row = `${ip}, "${info.replace(/,/g, ';')}", "${now}"\n`;
+                    let row = `${ip}, "${info.replace(/,/g, ';')}", "${now}", "${chosen}"\n`;
 
                     // Get dropbox logs (dropbox-fs doesn't allow for appending)
                     dfs.readFile('/treatment-logs.csv', {encoding: 'utf8'}, (err, result) => {
