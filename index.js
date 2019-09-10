@@ -97,7 +97,7 @@ function submitted(event) {
                     let now = current_datetime.getFullYear() + "-" + (current_datetime.getMonth() + 1) + "-" + current_datetime.getDate() + " " + current_datetime.getHours() + ":" + current_datetime.getMinutes() + ":" + current_datetime.getSeconds();
                     let ip = JSON.stringify(data.ip, null, 2);
                     // String to append to dropbox logs
-                    let row = `"${ip}", "${info.replace(/,/g, ';')}", "${now}"\n`;
+                    let row = `${ip}, "${info.replace(/,/g, ';')}", "${now}"\n`;
 
                     // Get dropbox logs (dropbox-fs doesn't allow for appending)
                     dfs.readFile('/treatment-logs.csv', {encoding: 'utf8'}, (err, result) => {
