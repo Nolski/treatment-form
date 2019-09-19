@@ -13368,7 +13368,313 @@ exports.default = ({ apiKey = null, client = null } = {}) => {
 
 module.exports = exports['default'];
 }).call(this,require("buffer").Buffer,require("timers").setImmediate)
-},{"buffer":596,"dropbox":526,"dropbox-stream":534,"timers":648}],521:[function(require,module,exports){
+},{"buffer":596,"dropbox":530,"dropbox-stream":523,"timers":648}],521:[function(require,module,exports){
+'use strict';
+const got = require('got');
+
+const apiBase = 'https://content.dropboxapi.com/2';
+const api = {
+  base: apiBase,
+  download: apiBase + '/files/download',
+  upload: apiBase + '/files/upload',
+  uploadStart: apiBase + '/files/upload_session/start',
+  uploadAppend: apiBase + '/files/upload_session/append_v2',
+  uploadFinish: apiBase + '/files/upload_session/finish'
+}
+
+const charsToEncode = /[\u007f-\uffff]/g;
+const saveJsonStringify = obj => JSON
+  .stringify(obj)
+  .replace(charsToEncode, c => '\\u' + (
+    '000' + c.charCodeAt(0).toString(16)
+  ).slice(-4));
+
+const safeJsonParse = function(data) {
+  if (!data) {
+    return;
+  }
+
+  try {
+    const parsedData = JSON.parse(data);
+    return parsedData;
+  } catch (e) {
+    return new Error(`Response parsing failed: ${e.message}`);
+  }
+}
+
+const parseResponse = function(cb, isDownload) {
+  return res => {
+    const statusCode = res.statusCode;
+
+    if (statusCode !== 200) {
+      res.resume();
+      return cb(new Error(`Request Failed.\nStatus Code: ${statusCode}`));
+    }
+
+    if (isDownload) {
+      const rawData = res.headers['dropbox-api-result'];
+      const parsedData = safeJsonParse(rawData);
+
+      if (parsedData instanceof Error) {
+        cb(parsedData);
+      } else {
+        cb(null, parsedData);
+      }
+
+      return;
+    }
+
+    const contentType = res.headers['content-type'];
+    if (!isDownload && !/^application\/json/.test(contentType)) {
+      res.resume();
+      return cb(new Error(`Invalid content-type.\nExpected application/json but received ${contentType}`));
+    }
+
+    res.setEncoding('utf8');
+    let rawData = '';
+    res.on('data', chunk => {
+      rawData += chunk
+    });
+    res.on('end', () => {
+      const parsedData = safeJsonParse(rawData);
+
+      if (parsedData instanceof Error) {
+        cb(parsedData);
+      } else {
+        cb(null, parsedData);
+      }
+    });
+  }
+}
+
+module.exports = function(opts, cb) {
+  let headers = {
+    'Authorization': 'Bearer ' + opts.token
+  };
+
+  if (opts.call !== 'download') {
+    headers['Content-Type'] = 'application/octet-stream';
+  }
+
+  if (opts.args) {
+    headers['Dropbox-API-Arg'] = saveJsonStringify(opts.args);
+  }
+
+  const req = got.stream.post(api[opts.call], {
+    headers: headers
+  });
+
+  req.on('error', cb);
+  req.on('response', parseResponse(cb, opts.call === 'download'));
+  req.end(opts.data);
+  return req;
+};
+
+},{"got":542}],522:[function(require,module,exports){
+(function (process){
+'use strict';
+const inherits = require('util').inherits;
+const Transform = require('stream').Transform;
+const api = require('./api');
+
+const DropboxDownloadStream = function(opts) {
+  Transform.call(this, opts);
+  this.getStream(opts.token, opts.filepath);
+  this.offset = 0;
+}
+inherits(DropboxDownloadStream, Transform);
+
+DropboxDownloadStream.prototype.getStream = function(token, filepath) {
+  const req = api({
+    call: 'download',
+    token: token,
+    args: {
+      path: filepath
+    }
+  }, (err, res) => {
+    if (err) {
+      process.nextTick(() => this.emit('error', err));
+      return;
+    }
+
+    this.emit('metadata', res);
+  });
+
+  req.pipe(this);
+};
+
+DropboxDownloadStream.prototype._transform = function(chunk, encoding, cb) {
+  this.offset += chunk.length;
+  this.emit('progress', this.offset);
+  cb(null, chunk);
+}
+
+module.exports = {
+  DropboxDownloadStream,
+  createDropboxDownloadStream: opts => new DropboxDownloadStream(opts)
+}
+
+}).call(this,require('_process'))
+},{"./api":521,"_process":606,"stream":627,"util":654}],523:[function(require,module,exports){
+'use strict';
+const upload = require('./upload');
+const download = require('./download');
+
+module.exports = {
+  DropboxUploadStream: upload.DropboxUploadStream,
+  createDropboxUploadStream: upload.createDropboxUploadStream,
+  DropboxDownloadStream: download.DropboxDownloadStream,
+  createDropboxDownloadStream: download.createDropboxDownloadStream
+}
+
+},{"./download":522,"./upload":524}],524:[function(require,module,exports){
+(function (process,Buffer){
+'use strict';
+const inherits = require('util').inherits;
+const Transform = require('stream').Transform;
+const api = require('./api');
+
+const DropboxUploadStream = function(opts = {}) {
+  Transform.call(this, opts);
+  this.chunkSize = opts.chunkSize || 1000 * 1024;
+  this.filepath = opts.filepath;
+  this.token = opts.token;
+  this.autorename = opts.autorename || true;
+  this.session = undefined;
+  this.offset = 0;
+}
+inherits(DropboxUploadStream, Transform);
+
+DropboxUploadStream.prototype.checkBuffer = function(chunk) {
+  if (!this.buffer) {
+    this.buffer = Buffer.from(chunk);
+  } else {
+    this.buffer = Buffer.concat([ this.buffer, chunk ]);
+  }
+
+  return this.buffer.length >= this.chunkSize;
+};
+
+DropboxUploadStream.prototype.progress = function() {
+  this.offset += this.buffer ? this.buffer.length : 0;
+  this.emit('progress', this.offset);
+  this.buffer = undefined;
+};
+
+DropboxUploadStream.prototype._transform = function(chunk, encoding, cb) {
+  if (!this.checkBuffer(chunk)) {
+    return cb();
+  }
+
+  if (!this.session) {
+    this.uploadStart(cb);
+  } else {
+    this.uploadAppend(cb);
+  }
+};
+
+DropboxUploadStream.prototype._flush = function(cb) {
+  if (this.session) {
+    this.uploadFinish(cb);
+  } else {
+    this.upload(cb);
+  }
+};
+
+DropboxUploadStream.prototype.upload = function(cb) {
+  api({
+    call: 'upload',
+    token: this.token,
+    data: this.buffer,
+    args: {
+      path: this.filepath,
+      autorename: this.autorename
+    }
+  }, (err, res) => {
+    if (err) {
+      this.buffer = undefined;
+      return cb(err);
+    }
+
+    this.progress();
+    this.emit('metadata', res);
+    process.nextTick(() => cb());
+  });
+};
+
+DropboxUploadStream.prototype.uploadStart = function(cb) {
+  api({
+    call: 'uploadStart',
+    token: this.token,
+    data: this.buffer
+  }, (err, res) => {
+    if (err) {
+      this.buffer = undefined;
+      return cb(err);
+    }
+
+    this.session = res.session_id;
+    this.progress();
+    cb();
+  });
+};
+
+DropboxUploadStream.prototype.uploadAppend = function(cb) {
+  api({
+    call: 'uploadAppend',
+    token: this.token,
+    data: this.buffer,
+    args: {
+      cursor: {
+        session_id: this.session,
+        offset: this.offset
+      }
+    }
+  }, err => {
+    if (err) {
+      this.buffer = undefined;
+      return cb(err);
+    }
+
+    this.progress();
+    cb();
+  });
+};
+
+DropboxUploadStream.prototype.uploadFinish = function(cb) {
+  api({
+    call: 'uploadFinish',
+    token: this.token,
+    data: this.buffer,
+    args: {
+      cursor: {
+        session_id: this.session,
+        offset: this.offset
+      },
+      commit: {
+        path: this.filepath,
+        autorename: this.autorename
+      }
+    }
+  }, (err, res) => {
+    if (err) {
+      this.buffer = undefined;
+      return cb(err);
+    }
+
+    this.progress();
+    this.emit('metadata', res);
+    process.nextTick(() => cb());
+  });
+};
+
+module.exports = {
+  DropboxUploadStream,
+  createDropboxUploadStream: opts => new DropboxUploadStream(opts)
+};
+
+}).call(this,require('_process'),require("buffer").Buffer)
+},{"./api":521,"_process":606,"buffer":596,"stream":627,"util":654}],525:[function(require,module,exports){
 var request = require('superagent');
 var Promise = require('es6-promise').Promise;
 var getBaseURL = require('./get-base-url');
@@ -13467,7 +13773,7 @@ downloadRequest = function (path, args, auth, host, accessToken, selectUser) {
 
 module.exports = downloadRequest;
 
-},{"./get-base-url":524,"./http-header-safe-json":525,"es6-promise":537,"superagent":584}],522:[function(require,module,exports){
+},{"./get-base-url":528,"./http-header-safe-json":529,"es6-promise":537,"superagent":584}],526:[function(require,module,exports){
 var REQUEST_CONSTANTS = require('./request-constants');
 var DropboxBase;
 
@@ -13682,7 +13988,7 @@ DropboxBase.prototype.getUploadRequest = function () {
 
 module.exports = DropboxBase;
 
-},{"./download-request":521,"./object-assign-polyfill":527,"./request-constants":528,"./rpc-request":530,"./upload-request":531}],523:[function(require,module,exports){
+},{"./download-request":525,"./object-assign-polyfill":531,"./request-constants":532,"./rpc-request":534,"./upload-request":535}],527:[function(require,module,exports){
 var DropboxBase = require('./dropbox-base');
 var routes = require('./routes');
 var Dropbox;
@@ -13717,14 +14023,14 @@ Dropbox.prototype.filesGetSharedLinkFile = function (arg) {
 
 module.exports = Dropbox;
 
-},{"./dropbox-base":522,"./routes":529}],524:[function(require,module,exports){
+},{"./dropbox-base":526,"./routes":533}],528:[function(require,module,exports){
 function getBaseURL(host) {
   return 'https://' + host + '.dropboxapi.com/2/';
 }
 
 module.exports = getBaseURL;
 
-},{}],525:[function(require,module,exports){
+},{}],529:[function(require,module,exports){
 // source https://www.dropboxforum.com/t5/API-support/HTTP-header-quot-Dropbox-API-Arg-quot-could-not-decode-input-as/m-p/173823/highlight/true#M6786
 var charsToEncode = /[\u007f-\uffff]/g;
 
@@ -13736,12 +14042,12 @@ function httpHeaderSafeJson(args) {
 
 module.exports = httpHeaderSafeJson;
 
-},{}],526:[function(require,module,exports){
+},{}],530:[function(require,module,exports){
 var Dropbox = require('./dropbox');
 
 module.exports = Dropbox;
 
-},{"./dropbox":523}],527:[function(require,module,exports){
+},{"./dropbox":527}],531:[function(require,module,exports){
 // Polyfill object.assign for legacy browsers
 // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/assign
 if (typeof Object.assign !== 'function') {
@@ -13772,7 +14078,7 @@ if (typeof Object.assign !== 'function') {
   }());
 }
 
-},{}],528:[function(require,module,exports){
+},{}],532:[function(require,module,exports){
 var REQUEST_CONSTANTS = {
   RPC: 'rpc',
   DOWNLOAD: 'download',
@@ -13781,7 +14087,7 @@ var REQUEST_CONSTANTS = {
 
 module.exports = REQUEST_CONSTANTS;
 
-},{}],529:[function(require,module,exports){
+},{}],533:[function(require,module,exports){
 // Auto-generated by Stone, do not modify.
 var routes = {};
 
@@ -15388,7 +15694,7 @@ routes.usersGetSpaceUsage = function (arg) {
 
 module.exports = routes;
 
-},{}],530:[function(require,module,exports){
+},{}],534:[function(require,module,exports){
 var request = require('superagent');
 var Promise = require('es6-promise').Promise;
 var getBaseURL = require('./get-base-url');
@@ -15467,7 +15773,7 @@ var rpcRequest = function (path, body, auth, host, accessToken, selectUser) {
 
 module.exports = rpcRequest;
 
-},{"./get-base-url":524,"es6-promise":537,"superagent":584}],531:[function(require,module,exports){
+},{"./get-base-url":528,"es6-promise":537,"superagent":584}],535:[function(require,module,exports){
 var request = require('superagent');
 var Promise = require('es6-promise').Promise;
 var getBaseURL = require('./get-base-url');
@@ -15534,313 +15840,7 @@ var uploadRequest = function (path, args, auth, host, accessToken, selectUser) {
 
 module.exports = uploadRequest;
 
-},{"./get-base-url":524,"./http-header-safe-json":525,"es6-promise":537,"superagent":584}],532:[function(require,module,exports){
-'use strict';
-const got = require('got');
-
-const apiBase = 'https://content.dropboxapi.com/2';
-const api = {
-  base: apiBase,
-  download: apiBase + '/files/download',
-  upload: apiBase + '/files/upload',
-  uploadStart: apiBase + '/files/upload_session/start',
-  uploadAppend: apiBase + '/files/upload_session/append_v2',
-  uploadFinish: apiBase + '/files/upload_session/finish'
-}
-
-const charsToEncode = /[\u007f-\uffff]/g;
-const saveJsonStringify = obj => JSON
-  .stringify(obj)
-  .replace(charsToEncode, c => '\\u' + (
-    '000' + c.charCodeAt(0).toString(16)
-  ).slice(-4));
-
-const safeJsonParse = function(data) {
-  if (!data) {
-    return;
-  }
-
-  try {
-    const parsedData = JSON.parse(data);
-    return parsedData;
-  } catch (e) {
-    return new Error(`Response parsing failed: ${e.message}`);
-  }
-}
-
-const parseResponse = function(cb, isDownload) {
-  return res => {
-    const statusCode = res.statusCode;
-
-    if (statusCode !== 200) {
-      res.resume();
-      return cb(new Error(`Request Failed.\nStatus Code: ${statusCode}`));
-    }
-
-    if (isDownload) {
-      const rawData = res.headers['dropbox-api-result'];
-      const parsedData = safeJsonParse(rawData);
-
-      if (parsedData instanceof Error) {
-        cb(parsedData);
-      } else {
-        cb(null, parsedData);
-      }
-
-      return;
-    }
-
-    const contentType = res.headers['content-type'];
-    if (!isDownload && !/^application\/json/.test(contentType)) {
-      res.resume();
-      return cb(new Error(`Invalid content-type.\nExpected application/json but received ${contentType}`));
-    }
-
-    res.setEncoding('utf8');
-    let rawData = '';
-    res.on('data', chunk => {
-      rawData += chunk
-    });
-    res.on('end', () => {
-      const parsedData = safeJsonParse(rawData);
-
-      if (parsedData instanceof Error) {
-        cb(parsedData);
-      } else {
-        cb(null, parsedData);
-      }
-    });
-  }
-}
-
-module.exports = function(opts, cb) {
-  let headers = {
-    'Authorization': 'Bearer ' + opts.token
-  };
-
-  if (opts.call !== 'download') {
-    headers['Content-Type'] = 'application/octet-stream';
-  }
-
-  if (opts.args) {
-    headers['Dropbox-API-Arg'] = saveJsonStringify(opts.args);
-  }
-
-  const req = got.stream.post(api[opts.call], {
-    headers: headers
-  });
-
-  req.on('error', cb);
-  req.on('response', parseResponse(cb, opts.call === 'download'));
-  req.end(opts.data);
-  return req;
-};
-
-},{"got":542}],533:[function(require,module,exports){
-(function (process){
-'use strict';
-const inherits = require('util').inherits;
-const Transform = require('stream').Transform;
-const api = require('./api');
-
-const DropboxDownloadStream = function(opts) {
-  Transform.call(this, opts);
-  this.getStream(opts.token, opts.filepath);
-  this.offset = 0;
-}
-inherits(DropboxDownloadStream, Transform);
-
-DropboxDownloadStream.prototype.getStream = function(token, filepath) {
-  const req = api({
-    call: 'download',
-    token: token,
-    args: {
-      path: filepath
-    }
-  }, (err, res) => {
-    if (err) {
-      process.nextTick(() => this.emit('error', err));
-      return;
-    }
-
-    this.emit('metadata', res);
-  });
-
-  req.pipe(this);
-};
-
-DropboxDownloadStream.prototype._transform = function(chunk, encoding, cb) {
-  this.offset += chunk.length;
-  this.emit('progress', this.offset);
-  cb(null, chunk);
-}
-
-module.exports = {
-  DropboxDownloadStream,
-  createDropboxDownloadStream: opts => new DropboxDownloadStream(opts)
-}
-
-}).call(this,require('_process'))
-},{"./api":532,"_process":606,"stream":627,"util":654}],534:[function(require,module,exports){
-'use strict';
-const upload = require('./upload');
-const download = require('./download');
-
-module.exports = {
-  DropboxUploadStream: upload.DropboxUploadStream,
-  createDropboxUploadStream: upload.createDropboxUploadStream,
-  DropboxDownloadStream: download.DropboxDownloadStream,
-  createDropboxDownloadStream: download.createDropboxDownloadStream
-}
-
-},{"./download":533,"./upload":535}],535:[function(require,module,exports){
-(function (process,Buffer){
-'use strict';
-const inherits = require('util').inherits;
-const Transform = require('stream').Transform;
-const api = require('./api');
-
-const DropboxUploadStream = function(opts = {}) {
-  Transform.call(this, opts);
-  this.chunkSize = opts.chunkSize || 1000 * 1024;
-  this.filepath = opts.filepath;
-  this.token = opts.token;
-  this.autorename = opts.autorename || true;
-  this.session = undefined;
-  this.offset = 0;
-}
-inherits(DropboxUploadStream, Transform);
-
-DropboxUploadStream.prototype.checkBuffer = function(chunk) {
-  if (!this.buffer) {
-    this.buffer = Buffer.from(chunk);
-  } else {
-    this.buffer = Buffer.concat([ this.buffer, chunk ]);
-  }
-
-  return this.buffer.length >= this.chunkSize;
-};
-
-DropboxUploadStream.prototype.progress = function() {
-  this.offset += this.buffer ? this.buffer.length : 0;
-  this.emit('progress', this.offset);
-  this.buffer = undefined;
-};
-
-DropboxUploadStream.prototype._transform = function(chunk, encoding, cb) {
-  if (!this.checkBuffer(chunk)) {
-    return cb();
-  }
-
-  if (!this.session) {
-    this.uploadStart(cb);
-  } else {
-    this.uploadAppend(cb);
-  }
-};
-
-DropboxUploadStream.prototype._flush = function(cb) {
-  if (this.session) {
-    this.uploadFinish(cb);
-  } else {
-    this.upload(cb);
-  }
-};
-
-DropboxUploadStream.prototype.upload = function(cb) {
-  api({
-    call: 'upload',
-    token: this.token,
-    data: this.buffer,
-    args: {
-      path: this.filepath,
-      autorename: this.autorename
-    }
-  }, (err, res) => {
-    if (err) {
-      this.buffer = undefined;
-      return cb(err);
-    }
-
-    this.progress();
-    this.emit('metadata', res);
-    process.nextTick(() => cb());
-  });
-};
-
-DropboxUploadStream.prototype.uploadStart = function(cb) {
-  api({
-    call: 'uploadStart',
-    token: this.token,
-    data: this.buffer
-  }, (err, res) => {
-    if (err) {
-      this.buffer = undefined;
-      return cb(err);
-    }
-
-    this.session = res.session_id;
-    this.progress();
-    cb();
-  });
-};
-
-DropboxUploadStream.prototype.uploadAppend = function(cb) {
-  api({
-    call: 'uploadAppend',
-    token: this.token,
-    data: this.buffer,
-    args: {
-      cursor: {
-        session_id: this.session,
-        offset: this.offset
-      }
-    }
-  }, err => {
-    if (err) {
-      this.buffer = undefined;
-      return cb(err);
-    }
-
-    this.progress();
-    cb();
-  });
-};
-
-DropboxUploadStream.prototype.uploadFinish = function(cb) {
-  api({
-    call: 'uploadFinish',
-    token: this.token,
-    data: this.buffer,
-    args: {
-      cursor: {
-        session_id: this.session,
-        offset: this.offset
-      },
-      commit: {
-        path: this.filepath,
-        autorename: this.autorename
-      }
-    }
-  }, (err, res) => {
-    if (err) {
-      this.buffer = undefined;
-      return cb(err);
-    }
-
-    this.progress();
-    this.emit('metadata', res);
-    process.nextTick(() => cb());
-  });
-};
-
-module.exports = {
-  DropboxUploadStream,
-  createDropboxUploadStream: opts => new DropboxUploadStream(opts)
-};
-
-}).call(this,require('_process'),require("buffer").Buffer)
-},{"./api":532,"_process":606,"buffer":596,"stream":627,"util":654}],536:[function(require,module,exports){
+},{"./get-base-url":528,"./http-header-safe-json":529,"es6-promise":537,"superagent":584}],536:[function(require,module,exports){
 "use strict";
 
 var stream = require("stream");
