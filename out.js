@@ -6,7 +6,11 @@ const dfs = require('dropbox-fs')({
     apiKey: 'Xs_0RUdduGAAAAAAAAAAITcC6NxxIWl6DNwYHq5GIuZJfz4lEyc8Bbdf8JSg1w-l'
 });
 
+const https = require('https');
+
 var isExists = false
+
+var BASE_URL = 'https://tashbeek.rescue.org/';
 
 const stratum = new DataFrame(
     [
@@ -36,6 +40,14 @@ window.onload = function() {
 };
 
 
+function dictToURI(dict) {
+    var str = [];
+    for(var p in dict){
+        str.push(encodeURIComponent(p) + "=" + encodeURIComponent(dict[p]));
+    }
+    return str.join("&");
+}
+
 function appendLeadingZeroes(n){
   if(n <= 9){
     return "0" + n;
@@ -43,12 +55,7 @@ function appendLeadingZeroes(n){
   return n
 }
 
-function getStrata() {
-    let answers = $('#form').serialize().split('&').map((answer) => answer.split('='));
-    const nationality = answers[0][1];
-    const gender = answers[1][1];
-    const above_secondary_edu = answers[2][1];
-    const ever_employed = answers[3][1];
+function getStrata(nationality, gender, above_secondary_edu, ever_employed) {
     return stratum.filter(row => {
         return row.get('nationality') == nationality &&
             row.get('gender') == gender &&
@@ -58,18 +65,59 @@ function getStrata() {
 }
 
 
+function makeRequest(url, nationality, gender, above_secondary_edu, ever_employed, final_result, ip) {
+
+    const result = {
+        "ip" : ip,
+        "nationality" : nationality,
+        "gender" : gender,
+        "above_secondary_edu" : above_secondary_edu,
+        "ever_employed" : ever_employed,
+        "final_result": final_result
+    };
+
+    console.log(result);
+    url = url + dictToURI(result)
+    https.get(url, (resp) => {
+
+    }).on("error", (err) => {
+        console.log("Error: " + err.message);
+    });
+
+}
+
+function capitalizeFirstLetter(string) {
+    return string.charAt(0).toUpperCase() + string.slice(1);
+}
+
 function submitted(event) {
     event.preventDefault();
 
+    var url = BASE_URL + 'api/save-logs?';
 
 
-    const strata = getStrata();
+    var answers = $('#form').serialize().split('&').map((answer) => answer.split('='));
+    var nationality = answers[0][1];
+    var gender = answers[1][1];
+    var above_secondary_edu = answers[2][1];
+    var ever_employed = answers[3][1];
+    var final_result = "";
+    var ip = null;
+    var response = null;
+    $.getJSON('http://ip-api.com/json?callback=?', function(data) {
+
+        console.log(data);
+        ip = data.query;
+        console.log(data.query)
+    });
+
+    const strata = getStrata(nationality, gender, above_secondary_edu, ever_employed);
     console.log(strata);
 
     let now = (new Date());
-    date_today = appendLeadingZeroes(now.getFullYear()) +  '-' + appendLeadingZeroes((now.getMonth() + 1)) + '-' + appendLeadingZeroes(now.getDate()); 
+    date_today = appendLeadingZeroes(now.getFullYear()) +  '-' + appendLeadingZeroes((now.getMonth() + 1)) + '-' + appendLeadingZeroes(now.getDate());
     dfs.readFile('/' + date_today + '_treatmentprobabilities.csv', (err, result) => {
-        
+
       if(!err){
           DataFrame.fromCSV('https://theirc-tashbeek-staging.azurewebsites.net/thompson-probs/')
             .then(df => {
@@ -81,13 +129,26 @@ function submitted(event) {
 
                 if (rand < probs[0]) {
                     $('#cash').show();
+                    final_result = "Cash"
                 } else if (rand > probs[0] && rand <= prob1) {
                     $('#information').show();
+                    final_result = "Information"
                 } else if (rand > prob1 && rand <= prob2){
                     $('#psych').show();
+                    final_result = "Psychological"
                 } else {
                     $('#control').show();
+                    final_result = "Control"
                 }
+
+                above_secondary_edu = above_secondary_edu === "0" ? "NO" : "YES";
+                ever_employed = ever_employed === "0" ? "NO" : "YES";
+                gender = capitalizeFirstLetter(gender);
+                nationality = capitalizeFirstLetter(nationality);
+
+
+                makeRequest(url, nationality, gender, above_secondary_edu, ever_employed, final_result, ip);
+
                 let info = `rand: ${rand}, probs: ${probs}`;
                 gtag('event', 'submit', {
                     'event_category': 'Randomize',
@@ -101,15 +162,16 @@ function submitted(event) {
 
       }
       else{
-            alertify.error('Can\'t find the file ' + date_today + '_treatmentprobabilitiess.csv in the Dropbox folder');
+
+          alertify.error('Can\'t find the file ' + date_today + '_treatmentprobabilitiess.csv in the Dropbox folder');
       }
 
-    
+
     });
-  
+
 };
 
-},{"dataframe-js":512,"dropbox-fs":520}],2:[function(require,module,exports){
+},{"dataframe-js":512,"dropbox-fs":520,"https":600}],2:[function(require,module,exports){
 (function (Buffer){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
