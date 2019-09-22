@@ -104,12 +104,6 @@ function submitted(event) {
     var final_result = "";
     var ip = null;
     var response = null;
-    $.getJSON('http://ip-api.com/json?callback=?', function(data) {
-
-        console.log(data);
-        ip = data.query;
-        console.log(data.query)
-    });
 
     const strata = getStrata(nationality, gender, above_secondary_edu, ever_employed);
     console.log(strata);
@@ -146,8 +140,12 @@ function submitted(event) {
                 gender = capitalizeFirstLetter(gender);
                 nationality = capitalizeFirstLetter(nationality);
 
+                $.getJSON('https://ipapi.co/json/', function(data) {
+                    ip = data.query;
 
-                makeRequest(url, nationality, gender, above_secondary_edu, ever_employed, final_result, ip);
+                    makeRequest(url, nationality, gender, above_secondary_edu, ever_employed, final_result, ip);
+                });
+
 
                 let info = `rand: ${rand}, probs: ${probs}`;
                 gtag('event', 'submit', {
