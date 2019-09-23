@@ -110,7 +110,7 @@ function submitted(event) {
     let now = (new Date());
     date_today = appendLeadingZeroes(now.getFullYear()) +  '-' + appendLeadingZeroes((now.getMonth() + 1)) + '-' + appendLeadingZeroes(now.getDate());
     dfs.readFile('/' + date_today + '_treatmentprobabilities.csv', (err, result) => {
-
+      err = false; // FIXME: temporarily disabling Dropbox dependency.
       if(!err){
           DataFrame.fromCSV('https://theirc-tashbeek-staging.azurewebsites.net/thompson-probs/')
             .then(df => {
