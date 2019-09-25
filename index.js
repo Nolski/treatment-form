@@ -1,3 +1,5 @@
+require('alertifyjs');
+
 var DataFrame = require('dataframe-js').DataFrame;
 const path = 'https://www.dropbox.com/sh/qwh4b6e7vvqes6x/AABvZYZaMkSdmICQST2edcica/IRC-Thompson/2019-04-08_priordata.csv'
 
@@ -107,12 +109,16 @@ function submitted(event) {
     const strata = getStrata(nationality, gender, above_secondary_edu, ever_employed);
     console.log(strata);
 
-    let now = (new Date());
-    date_today = appendLeadingZeroes(now.getFullYear()) +  '-' + appendLeadingZeroes((now.getMonth() + 1)) + '-' + appendLeadingZeroes(now.getDate());
-    dfs.readFile('/' + date_today + '_treatmentprobabilities.csv', (err, result) => {
-      err = false; // FIXME: temporarily disabling Dropbox dependency.
-      if(!err){
-          DataFrame.fromCSV('https://theirc-tashbeek-staging.azurewebsites.net/thompson-probs/')
+    fetch('https://theirc-tashbeek-staging.azurewebsites.net/check-treatmentcsv/', {
+        mode: 'cors',
+        headers: {
+          'Content-Type':'text/plain'
+        }
+    })
+    .then(response => response.text())
+    .then((body) => {
+        if (body == "pass") {
+            DataFrame.fromCSV('https://theirc-tashbeek-staging.azurewebsites.net/thompson-probs/')
             .then(df => {
                 const probs = df.toArray()[strata].map(parseFloat);
                 const rand = Math.random();
@@ -140,11 +146,9 @@ function submitted(event) {
                 nationality = capitalizeFirstLetter(nationality);
 
                 $.getJSON('https://ipapi.co/json/', function(data) {
-                    ip = data.query;
-
+                    ip = data.ip;
                     makeRequest(url, nationality, gender, above_secondary_edu, ever_employed, final_result, ip);
                 });
-
 
                 let info = `rand: ${rand}, probs: ${probs}`;
                 gtag('event', 'submit', {
@@ -153,17 +157,13 @@ function submitted(event) {
                 });
 
                 alertify.success('Response Submitted');
-
             });
-
-
-      }
-      else{
-
-          alertify.error('Can\'t find the file ' + date_today + '_treatmentprobabilitiess.csv in the Dropbox folder');
-      }
-
-
+        }
+        else {
+            alertify.error('Unable to connect to service, please check with administrator');
+        }
+    })
+    .catch(function(error) {
+        alertify.error('Unable to connect to service, please check with administrator', error);
     });
-
 };
