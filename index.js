@@ -1,11 +1,6 @@
 require('alertifyjs');
 
 var DataFrame = require('dataframe-js').DataFrame;
-const path = 'https://www.dropbox.com/sh/qwh4b6e7vvqes6x/AABvZYZaMkSdmICQST2edcica/IRC-Thompson/2019-04-08_priordata.csv'
-
-const dfs = require('dropbox-fs')({
-    apiKey: 'Xs_0RUdduGAAAAAAAAACA-7HoN5VzA9jAUvGUWxTFWAj_0Z8txJtE_-4PTm-q88d'
-});
 
 const https = require('https');
 
@@ -64,7 +59,6 @@ function getStrata(nationality, gender, above_secondary_edu, ever_employed) {
             row.get('ever_employed') == ever_employed;
     }).toDict()['id'][0];
 }
-
 
 function makeRequest(url, nationality, gender, above_secondary_edu, ever_employed, final_result, ip) {
 
